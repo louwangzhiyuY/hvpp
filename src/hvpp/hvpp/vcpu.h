@@ -142,8 +142,8 @@ static_assert(sizeof(vcpu_stack_t::shadow_space_t) == 32);
 class vcpu_t final
 {
   public:
-    auto initialize(vmexit_handler& handler) noexcept -> error_code_t;
-    void destroy() noexcept;
+    vcpu_t(vmexit_handler& handler) noexcept;
+    ~vcpu_t() noexcept;
 
     void launch() noexcept;
     void terminate() noexcept;
@@ -409,7 +409,7 @@ class vcpu_t final
     //
     fxsave_area_t      fxsave_area_;
 
-    vmexit_handler*    handler_;
+    vmexit_handler&    handler_;
     vcpu_state         state_;
 
     ept_t*             ept_;

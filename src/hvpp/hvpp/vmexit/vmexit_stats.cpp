@@ -2,6 +2,7 @@
 
 #include "hvpp/vcpu.h"
 
+#include "hvpp/lib/assert.h"
 #include "hvpp/lib/log.h"
 #include "hvpp/lib/mp.h" // mp::cpu_index()
 
@@ -18,7 +19,9 @@
 
 namespace hvpp {
 
-auto vmexit_stats_handler::initialize() noexcept -> error_code_t
+vmexit_stats_handler::vmexit_stats_handler() noexcept
+  : storage_merged_{}
+  , vmexit_trace_bitmap_{}
 {
   terminated_vcpu_count_ = 0;
 
@@ -26,11 +29,7 @@ auto vmexit_stats_handler::initialize() noexcept -> error_code_t
   // Allocate memory for statistics (per VCPU).
   //
   storage_ = new vmexit_stats_storage_t[mp::cpu_count()];
-
-  if (!storage_)
-  {
-    return make_error_code_t(std::errc::not_enough_memory);
-  }
+  hvpp_assert(storage_ != nullptr);
 
   memset(storage_, 0, sizeof(*storage_) * mp::cpu_count());
 
@@ -46,19 +45,14 @@ auto vmexit_stats_handler::initialize() noexcept -> error_code_t
   //
   // vmexit_trace_bitmap_.clear(int(vmx::exit_reason::exception_or_nmi));
   //
-
-  return error_code_t{};
 }
 
-void vmexit_stats_handler::destroy() noexcept
+vmexit_stats_handler::~vmexit_stats_handler() noexcept
 {
-  if (storage_)
-  {
-    //
-    // Free the memory.
-    //
-    delete[] storage_;
-  }
+  //
+  // Free the memory.
+  //
+  delete[] storage_;
 }
 
 void vmexit_stats_handler::handle(vcpu_t& vp) noexcept

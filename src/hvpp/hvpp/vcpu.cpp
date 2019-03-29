@@ -15,7 +15,48 @@ namespace hvpp {
 // Public
 //
 
-auto vcpu_t::initialize(vmexit_handler& handler) noexcept -> error_code_t
+vcpu_t::vcpu_t(vmexit_handler& handler) noexcept
+  //
+  // Initialize VMXON region and VMCS.
+  //
+  : vmxon_{}
+  , vmcs_{}
+
+  //
+  // This is not really needed.
+  // MSR bitmaps and I/O bitmaps are actually copied here from
+  // user-provided buffers (via msr_bitmap() and io_bitmap() methods)
+  // before they are enabled.
+  //
+  // , msr_bitmap_{}
+  // , io_bitmap_{}
+
+  , handler_ { handler }
+
+  //
+  // Signalize that this VCPU is turned off.
+  //
+  , state_{ vcpu_state::off }
+
+  //
+  // Let EPT be uninitialized.
+  // VM-exit handler is responsible for EPT setup.
+  //
+  , ept_{ nullptr }
+  , ept_count_{ 0 }
+  , ept_index_{ 0 }
+
+  //
+  // Initialize pending-interrupt FIFO queue.
+  //
+  , pending_interrupt_first_{ 0 }
+  , pending_interrupt_count_{ 0 }
+
+  //
+  // Well, this is also not necessary.
+  // This member is reset to "false" on each VM-exit in entry_host() method.
+  //
+  , suppress_rip_adjust_{ false }
 {
   //
   // Fill out initial stack with garbage.
@@ -30,52 +71,6 @@ auto vcpu_t::initialize(vmexit_handler& handler) noexcept -> error_code_t
   //
   guest_context_.clear();
   exit_context_.clear();
-
-  //
-  // Signalize that this VCPU is turned off.
-  //
-  state_ = vcpu_state::off;
-
-  //
-  // Initialize VM-exit handler.
-  //
-  handler_ = &handler;
-
-  //
-  // Initialize VMXON region and VMCS.
-  //
-  memset(&vmxon_, 0, sizeof(vmxon_));
-  memset(&vmcs_, 0, sizeof(vmcs_));
-
-  //
-  // Let EPT be uninitialized.
-  // VM-exit handler is responsible for EPT setup.
-  //
-  ept_ = nullptr;
-  ept_count_ = 0;
-  ept_index_ = 0;
-
-  //
-  // This is not really needed.
-  // MSR bitmaps and I/O bitmaps are actually copied here from
-  // user-provided buffers (via msr_bitmap() and io_bitmap() methods)
-  // before they are enabled.
-  //
-  // memset(&msr_bitmap_, 0, sizeof(msr_bitmap_));
-  // memset(&io_bitmap_, 0, sizeof(io_bitmap_));
-  //
-
-  //
-  // Initialize pending-interrupt FIFO queue.
-  //
-  pending_interrupt_first_ = 0;
-  pending_interrupt_count_ = 0;
-
-  //
-  // Well, this is also not necessary.
-  // This member is reset to "false" on each VM-exit in entry_host() method.
-  //
-  suppress_rip_adjust_ = false;
 
   //
   // Assertions.
@@ -97,11 +92,9 @@ auto vcpu_t::initialize(vmexit_handler& handler) noexcept -> error_code_t
     static_assert(VCPU_RSP + VCPU_LAUNCH_CONTEXT_OFFSET == offsetof(vcpu_t, guest_context_));
     static_assert(VCPU_RSP + VCPU_EXIT_CONTEXT_OFFSET   == offsetof(vcpu_t, exit_context_));
   };
-
-  return error_code_t{};
 }
 
-void vcpu_t::destroy() noexcept
+vcpu_t::~vcpu_t() noexcept
 {
   //
   // Signalize that this VCPU is terminating.
@@ -114,7 +107,7 @@ void vcpu_t::destroy() noexcept
   // handler to call vcpu_t::terminate(); e.g. VMCALL with specific
   // index.
   //
-  handler_->invoke_termination(*this);
+  handler_.invoke_termination(*this);
 
   //
   // Destroy EPT.
@@ -124,8 +117,6 @@ void vcpu_t::destroy() noexcept
 
 void vcpu_t::launch() noexcept
 {
-  hvpp_assert(handler_ != nullptr);
-
   //
   // Launch of the VCPU is performed via similar principle as setjmp/longjmp:
   //   - Save current state here (guest_context_.capture() returns 0 if it's
@@ -239,11 +230,6 @@ void vcpu_t::ept_enable(uint16_t count /* = 1 */) noexcept
   ept_ = new ept_t[count];
   ept_count_ = count;
 
-  for (uint16_t i = 0; i < count; i += 1)
-  {
-    ept_[i].initialize();
-  }
-
   //
   // Enable EPT.
   //
@@ -267,11 +253,6 @@ void vcpu_t::ept_disable() noexcept
   //
   // Destroy EPT.
   //
-  for (uint16_t i = 0; i < ept_count_; i++)
-  {
-    ept_[i].destroy();
-  }
-
   delete[] ept_;
   ept_ = nullptr;
 
@@ -342,7 +323,7 @@ void vcpu_t::setup() noexcept
   setup_host();
   setup_guest();
 
-  handler_->setup(*this);
+  handler_.setup(*this);
 
   vmx::vmlaunch();
 
@@ -626,7 +607,7 @@ void vcpu_t::entry_host() noexcept
     // Because we're in VMX-root mode, the system memory allocator
     // has to be disabled.
     //
-    memory_manager::allocator_guard _;
+    mm::allocator_guard _;
 
     auto captured_rsp    = exit_context_.rsp;
     auto captured_rflags = exit_context_.rflags;
@@ -649,7 +630,7 @@ void vcpu_t::entry_host() noexcept
       stack_.machine_frame.rsp = exit_context_.rsp;
 
       {
-        handler_->handle(*this);
+        handler_.handle(*this);
 
         if (state_ == vcpu_state::terminated)
         {

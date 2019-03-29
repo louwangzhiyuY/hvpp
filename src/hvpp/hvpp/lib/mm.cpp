@@ -43,7 +43,7 @@
 //       4096 bytes.
 //
 
-namespace memory_manager
+namespace mm
 {
   using pgbmp_t = object_t<bitmap>;
   using pgmap_t = uint16_t;
@@ -461,17 +461,17 @@ namespace detail
 {
   void generic_free(void* address) noexcept
   {
-    reinterpret_cast<uint8_t*>(address) >= memory_manager::global.base_address &&
-    reinterpret_cast<uint8_t*>(address) < memory_manager::global.base_address + memory_manager::global.available_size
-      ? memory_manager::free       (address)
-      : memory_manager::system_free(address);
+    reinterpret_cast<uint8_t*>(address) >= mm::global.base_address &&
+    reinterpret_cast<uint8_t*>(address)  < mm::global.base_address + mm::global.available_size
+      ? mm::free       (address)
+      : mm::system_free(address);
   }
 }
 
-void* operator new  (size_t size)                                    { return memory_manager::global.allocator[mp::cpu_index()].allocate(size); }
-void* operator new[](size_t size)                                    { return memory_manager::global.allocator[mp::cpu_index()].allocate(size); }
-void* operator new  (size_t size, std::align_val_t)                  { return memory_manager::global.allocator[mp::cpu_index()].allocate(size); }
-void* operator new[](size_t size, std::align_val_t)                  { return memory_manager::global.allocator[mp::cpu_index()].allocate(size); }
+void* operator new  (size_t size)                                    { return mm::global.allocator[mp::cpu_index()].allocate(size); }
+void* operator new[](size_t size)                                    { return mm::global.allocator[mp::cpu_index()].allocate(size); }
+void* operator new  (size_t size, std::align_val_t)                  { return mm::global.allocator[mp::cpu_index()].allocate(size); }
+void* operator new[](size_t size, std::align_val_t)                  { return mm::global.allocator[mp::cpu_index()].allocate(size); }
 
 void operator delete  (void* address)                                { detail::generic_free(address); }
 void operator delete[](void* address)                                { detail::generic_free(address); }

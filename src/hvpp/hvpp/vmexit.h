@@ -144,22 +144,19 @@ class vmexit_handler
                                                         };
 
   public:
+    //
+    // Avoid execution of any VMX instructions here, because
+    // this method is not guaranteed to be called in the VMX-root
+    // mode.
+    //
     vmexit_handler() noexcept;
-    ~vmexit_handler() noexcept;
 
     //
     // Avoid execution of any VMX instructions here, because
     // this method is not guaranteed to be called in the VMX-root
     // mode.
     //
-    virtual auto initialize() noexcept -> error_code_t;
-
-    //
-    // Avoid execution of any VMX instructions here, because
-    // this method is not guaranteed to be called in the VMX-root
-    // mode.
-    //
-    virtual void destroy() noexcept;
+    virtual ~vmexit_handler() noexcept;
 
     //
     // This method allows you to set up VCPU state before VMLAUNCH.

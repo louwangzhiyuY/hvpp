@@ -4,7 +4,7 @@
 
 namespace hvpp {
 
-auto vmexit_c_wrapper_handler::initialize(const c_handler_array_t& c_handlers, void* context) noexcept -> error_code_t
+vmexit_c_wrapper_handler::vmexit_c_wrapper_handler(const c_handler_array_t& c_handlers, void* context) noexcept
 {
   //
   // Make local copy of the C-handlers.
@@ -12,11 +12,9 @@ auto vmexit_c_wrapper_handler::initialize(const c_handler_array_t& c_handlers, v
 
   c_handlers_ = c_handlers;
   context_ = context;
-
-  return error_code_t{};
 }
 
-void vmexit_c_wrapper_handler::destroy() noexcept
+vmexit_c_wrapper_handler::~vmexit_c_wrapper_handler() noexcept
 {
 
 }

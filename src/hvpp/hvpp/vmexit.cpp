@@ -82,16 +82,6 @@ vmexit_handler::~vmexit_handler() noexcept
 
 }
 
-auto vmexit_handler::initialize() noexcept -> error_code_t
-{
-  return error_code_t{};
-}
-
-void vmexit_handler::destroy() noexcept
-{
-
-}
-
 void vmexit_handler::setup(vcpu_t& vp) noexcept
 {
   (void)(vp);

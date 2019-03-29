@@ -7,25 +7,17 @@
 
 namespace hvpp {
 
-auto ept_t::initialize() noexcept -> error_code_t
+ept_t::ept_t() noexcept
+  : epml4_{}
+  , eptptr_{}
 {
   //
-  // Initialize EPT's PML4.  Each PML4 maps 512GB of memory. We would be fine
+  // Initialize EPT's PML4.  Each PML4 maps 512GB of memory.  We would be fine
   // with just one PML4 in most scenarios, but we have to waste single page
   // on it anyway.  Single page can handle 512 PML4s (their size is 8 bytes)
   // so just fill the whole page with 512 PML4s.
   //
   static_assert(sizeof(epte_t) * 512 == page_size);
-
-  epml4_ = new epte_t[512];
-  hvpp_assert(epml4_ != nullptr);
-
-  if (!epml4_)
-  {
-    return make_error_code_t(std::errc::not_enough_memory);
-  }
-
-  memset(epml4_, 0, sizeof(epte_t) * 512);
 
   //
   // Get physical address of EPT's PML4.
@@ -36,25 +28,14 @@ auto ept_t::initialize() noexcept -> error_code_t
   // Initialize EPT pointer.
   // It's not really JUST pointer, but Intel Manual calls it this way.
   //
-  eptptr_.flags = 0;
-  eptptr_.memory_type = static_cast<uint64_t>(memory_manager::mtrr().type(empl4_pa));
+  eptptr_.memory_type = static_cast<uint64_t>(mm::mtrr().type(empl4_pa));
   eptptr_.page_walk_length = ept_ptr_t::page_walk_length_4;
   eptptr_.page_frame_number = empl4_pa.pfn();
-
-  return error_code_t{};
 }
 
-void ept_t::destroy() noexcept
+ept_t::~ept_t() noexcept
 {
-  eptptr_.flags = 0;
-
-  if (epml4_)
-  {
-    unmap_table(epml4_);
-    delete[] epml4_;
-
-    epml4_ = nullptr;
-  }
+  unmap_table(epml4_);
 }
 
 void ept_t::map_identity(epte_t::access_type access /* = epte_t::access_type::read_write_execute */) noexcept
@@ -413,7 +394,7 @@ epte_t* ept_t::map_pdpt(pa_t guest_pa, pa_t host_pa, epte_t* pdpt,
 
   if (large == pml::pdpt)
   {
-    pdpte->update(host_pa, memory_manager::mtrr().type(guest_pa), true, access);
+    pdpte->update(host_pa, mm::mtrr().type(guest_pa), true, access);
     return pdpte;
   }
 
@@ -428,7 +409,7 @@ epte_t* ept_t::map_pd(pa_t guest_pa, pa_t host_pa, epte_t* pd,
 
   if (large == pml::pd)
   {
-    pde->update(host_pa, memory_manager::mtrr().type(guest_pa), true, access);
+    pde->update(host_pa, mm::mtrr().type(guest_pa), true, access);
     return pde;
   }
 
@@ -444,7 +425,7 @@ epte_t* ept_t::map_pt(pa_t guest_pa, pa_t host_pa, epte_t* pt,
   (void)(large);
   hvpp_assert(large == pml::pt);
   {
-    pte->update(host_pa, memory_manager::mtrr().type(guest_pa), access);
+    pte->update(host_pa, mm::mtrr().type(guest_pa), access);
     return pte;
   }
 }

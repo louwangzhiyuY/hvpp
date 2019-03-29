@@ -18,17 +18,17 @@ class error_code_t
 {
   public:
     error_code_t() noexcept
-      : value_(0) { }
+      : value_{ 0 } { }
 
     error_code_t(int value) noexcept
-      : value_(value) { }
+      : value_{ value } { }
 
     template<
       class EnumT,
       std::enable_if_t<std::is_error_code_enum_v<EnumT>, int> = 0
     >
     error_code_t(EnumT value) noexcept
-      : value_((int)value) { }
+      : value_{ (int)value } { }
 
     template<
       class EnumT,

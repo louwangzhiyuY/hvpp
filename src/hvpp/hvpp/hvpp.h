@@ -1216,32 +1216,31 @@ HvppEptGetEptPointer(
 NTSTATUS
 NTAPI
 HvppInitialize(
-  _Out_ PHVPP* Hvpp
+  VOID
   );
 
 VOID
 NTAPI
 HvppDestroy(
-  _In_ PHVPP Hvpp
+  VOID
   );
 
 NTSTATUS
 NTAPI
 HvppStart(
-  _In_ PHVPP Hvpp,
   _In_ PVMEXIT_HANDLER VmExitHandler
   );
 
 VOID
 NTAPI
 HvppStop(
-  _In_ PHVPP Hvpp
+  VOID
   );
 
 BOOLEAN
 NTAPI
 HvppIsStarted(
-  _In_ PHVPP Hvpp
+  VOID
   );
 
 #pragma endregion
